@@ -15,6 +15,8 @@
     :default "staging"]
    ["-t" "--test-name TESTNAME" "Name of Test to pull"
     :default "Test6"]
+   ["-p" "--platform PLATFORM_NAME" "Name of Platofrom (ios or android)"
+    :default "android"]
    ["-h" "--help"]])
 
 (defn -main [& args]
@@ -27,5 +29,5 @@
                             :handler cider-nrepl-handler))
       (do
         (println "Running workflow")
-        (get-test/run (:env options) (:test-name options))
+        (get-test/run (:env options) (:test-name options) (:platform options))
         (System/exit 0)))))
