@@ -21,8 +21,11 @@
       (println (format "Total hits: %d" n))
       hits)))
 
+(defn output-json [
+
 (defn run [env test-name platform]
   (doseq [metric-type ["location" "wifi" "sensor" "beacon"]]
-    (println (str "env: " env " test-name: " test-name " platform: " platform " metric-type: " metric-type ))
+    (let [data-name (str env "_" test-name "_" platform "-" metric-type)]
+    (println (str "env: " env " test-name: " test-name " platform: " platform " metric-type: " metric-type " data-name: " data-name))
     (let [hits (hits :platform platform :metric-type metric-type :env env :test-name test-name :response-size 2)]
       (pp/pprint (mapv #(% :_source) hits)))))
