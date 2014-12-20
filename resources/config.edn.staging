@@ -1,0 +1,6 @@
+{:es
+ { :host "elasticsearch-000-staging.mistsys.net" 
+  :port 8080
+  :username "mistical"
+  :password "play_misty_for_me"}
+ }
