@@ -20,7 +20,7 @@
 (defn -main [& args]
   (let [{:keys [options]} (parse-opts args cli-options)]
     (config/init (str "config.edn." (:env options)))
-    (if (:nrepl options)
+    (if (:nrepl-port options)
       (do
         (println "Starting nREPL server on 8888")
         (nrepl/start-server :port 8888

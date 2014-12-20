@@ -14,8 +14,8 @@
         url (str "http://" es-user ":" es-pw "@" es-host ":" es-port)]
     (println (format "url: %s" url))
     (let [conn (esr/connect url)
-          res  (esd/search conn "android-client-*-staging-v1" "mist-sdk" :query { :match { :TestID test-name }})
+          res  (esd/search conn "android-client-*-staging-v1" "mist-sdk" :query { :match { :TestID test-name }} :size 10000)
           n    (esrsp/total-hits res)
           hits (esrsp/hits-from res)]
       (println (format "Total hits: %d" n))
-      (pp/pprint (:_source (first hits))))))
+      (pp/pprint (mapv #(% :_source) hits)))))

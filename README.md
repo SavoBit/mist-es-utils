@@ -8,7 +8,7 @@ Utilities for getting data from Mist Elastic Search
 
 ## Development
 
-	lein run -nrepl
+	lein run -nrepl-port 8888
 	M-x cider-connect 8888
 
 ## License
