@@ -40,6 +40,11 @@
     ;; (with-open [writer (io/writer filename)]
     ;;   (json/write data writer))))
 
+(defn split-sample [sample]
+  (let [device (:Device sample)
+        sensors (group-by keys (:Sensor sample))]
+    (map #(assoc % :Device device) sensors)))
+
 (defn run [env test-name platform path]
   (doseq [metric-type ["location" "wifi" "sensor" "beacon"]]
     (let [data-name (str env "_" test-name "_" platform "-" metric-type)]
@@ -47,4 +52,11 @@
           samples (mapv #(% :_source) hits)]
       ;; (pp/pprint (mapv #(% :_source) hits)))))
       ;; (output-json path data-name samples)
-      (output-csv path data-name samples)))))
+      (if (= metric-type "sensor")
+        (do
+          (let [split-samples (group-by split-sample samples)]
+            (doseq [[sensor-name sensor-samples] split-samples]
+              (output-csv path (str data-name "_" sensor-name) sensor-samples))))
+
+        (do
+          (output-csv path data-name samples)))))))
