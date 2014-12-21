@@ -16,40 +16,35 @@
         es-pw (config/lookup :es :password)
         index (str platform "-client-" metric-type "-" env "-v1")
         url (str "http://" es-user ":" es-pw "@" es-host ":" es-port)]
-    (println (format "url: %s" url))
     (let [conn (esr/connect url)
           res  (esd/search conn index "mist-sdk" :query { :match { :TestID test-name }} :size response-size)
           n    (esrsp/total-hits res)
           hits (esrsp/hits-from res)]
-      (println (format "Total hits: %d" n))
+      (println (format "Total " index " hits: %d" n))
       hits)))
 
-(defn output-json [data-name data]
-  (let [filename (str data-name ".json")]
+(defn output-json [path data-name data]
+  (let [filename (str path "/" data-name ".json")]
     (println (str "Writing json to: " filename))
     (with-open [writer (io/writer filename)]
       (json/write data writer))))
 
-(defn output-csv [data-name data]
-  (let [filename (str data-name ".csv")
+(defn output-csv [path data-name data]
+  (let [filename (str path "/" data-name ".csv")
         columns (keys (first data))
         headers (map name columns)
         rows (mapv #(mapv % columns) data)]
-    (println (str "columns: " columns))
-    (println (str "headers: " headers))
-    (println (str "rows: " rows))
     (println (str "Writing csv to: " filename))
     (with-open [file (io/writer filename)]
       (csv/write-csv file (cons headers rows)))))
     ;; (with-open [writer (io/writer filename)]
     ;;   (json/write data writer))))
 
-(defn run [env test-name platform]
+(defn run [env test-name platform path]
   (doseq [metric-type ["location" "wifi" "sensor" "beacon"]]
     (let [data-name (str env "_" test-name "_" platform "-" metric-type)]
-    (println (str "env: " env " test-name: " test-name " platform: " platform " metric-type: " metric-type " data-name: " data-name))
-    (let [hits (hits :platform platform :metric-type metric-type :env env :test-name test-name :response-size 2)
+    (let [hits (hits :platform platform :metric-type metric-type :env env :test-name test-name)
           samples (mapv #(% :_source) hits)]
       ;; (pp/pprint (mapv #(% :_source) hits)))))
-      ;; (output-json data-name samples)
-      (output-csv data-name samples)))))
+      ;; (output-json path data-name samples)
+      (output-csv path data-name samples)))))

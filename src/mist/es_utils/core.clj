@@ -17,6 +17,8 @@
     :default "Test6"]
    ["-p" "--platform PLATFORM_NAME" "Name of Platofrom (ios or android)"
     :default "android"]
+   ["-P" "--path PATH" "Path to Directory to put results"
+    :default "data"]
    ["-h" "--help"]])
 
 (defn -main [& args]
@@ -29,5 +31,5 @@
                             :handler cider-nrepl-handler))
       (do
         (println "Running workflow")
-        (get-test/run (:env options) (:test-name options) (:platform options))
+        (get-test/run (:env options) (:test-name options) (:platform options) (:path options))
         (System/exit 0)))))
