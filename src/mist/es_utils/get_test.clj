@@ -3,6 +3,9 @@
             [clojurewerkz.elastisch.rest.document :as esd]
             [clojurewerkz.elastisch.query         :as q]
             [clojurewerkz.elastisch.rest.response :as esrsp]
+            [clojure.data.json :as json]
+            [clojure.data.csv :as csv]
+            [clojure.java.io :as io]
             [mist.es-utils.config :as config]
             [clojure.pprint :as pp]))
 
@@ -21,11 +24,32 @@
       (println (format "Total hits: %d" n))
       hits)))
 
-(defn output-json [
+(defn output-json [data-name data]
+  (let [filename (str data-name ".json")]
+    (println (str "Writing json to: " filename))
+    (with-open [writer (io/writer filename)]
+      (json/write data writer))))
+
+(defn output-csv [data-name data]
+  (let [filename (str data-name ".csv")
+        columns (keys (first data))
+        headers (map name columns)
+        rows (mapv #(mapv % columns) data)]
+    (println (str "columns: " columns))
+    (println (str "headers: " headers))
+    (println (str "rows: " rows))
+    (println (str "Writing csv to: " filename))
+    (with-open [file (io/writer filename)]
+      (csv/write-csv file (cons headers rows)))))
+    ;; (with-open [writer (io/writer filename)]
+    ;;   (json/write data writer))))
 
 (defn run [env test-name platform]
   (doseq [metric-type ["location" "wifi" "sensor" "beacon"]]
     (let [data-name (str env "_" test-name "_" platform "-" metric-type)]
     (println (str "env: " env " test-name: " test-name " platform: " platform " metric-type: " metric-type " data-name: " data-name))
-    (let [hits (hits :platform platform :metric-type metric-type :env env :test-name test-name :response-size 2)]
-      (pp/pprint (mapv #(% :_source) hits)))))
+    (let [hits (hits :platform platform :metric-type metric-type :env env :test-name test-name :response-size 2)
+          samples (mapv #(% :_source) hits)]
+      ;; (pp/pprint (mapv #(% :_source) hits)))))
+      ;; (output-json data-name samples)
+      (output-csv data-name samples)))))
