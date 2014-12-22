@@ -45,8 +45,6 @@
     (println (str "Writing csv to: " filename))
     (with-open [file (io/writer filename)]
       (csv/write-csv file (cons headers rows)))))
-    ;; (with-open [writer (io/writer filename)]
-    ;;   (json/write data writer))))
 
 (defn inject [samples device] 
   (reduce-kv #(assoc %1 %2 (assoc %3 :Device device)) {} samples))
@@ -57,30 +55,45 @@
     (println (str "Inside split-sample device: " device " sensors: " sensors))
     (inject :Device device sensors)))
 
+(defn init-writers [attrs]
+  (let [a (atom {})]
+    (doseq [i attrs]
+      (swap! a assoc i (clojure.java.io/writer (str (name i) ".csv") :append true)))
+    a))
+
 (defn run [env test-name platform path]
 ;;  (doseq [metric-type ["location" "wifi" "sensor" "beacon"]]
   (doseq [metric-type ["sensor"]]
     (let [data-name (str env "_" test-name "_" platform "-" metric-type)]
-    (let [hits (hits :platform platform :metric-type metric-type :env env :test-name test-name :response-size 2)
+    (let [hits (hits :platform platform :metric-type metric-type :env env :test-name test-name)
           samples (mapv #(% :_source) hits)]
       ;;(pp/pprint (mapv #(% :_source) hits))
       ;; (output-json path data-name samples)
       (if (= metric-type "sensor")
         (do
-          (let [split-samples (vec(map #(inject (:Sensor %) (:Device %)) samples))]
-;;            (println "split-samples:")
-;;            (pp/pprint split-samples)
-            (doseq [sensor-samples split-samples]
-              (println "sensor-samples:")
-              (pp/pprint sensor-samples)
-              (let [sensor-names (keys sensor-samples)]
-                (println "sensor-names:")
-                (pp/pprint sensor-names)
-                (doseq [sample sensor-samples]
-                  (println "sample: " sample)
-                  (doseq [sensor-name sensor-names]
-;;                    (pp/pprint {:sensor-name sensor-name :sensor-names sensor-names :sensor-name-sensor-samples (sensor-name sensor-samples)})))))))
-                    (output-csv path (str data-name "_" sensor-name) (sensor-name sensor-samples))))))))
+          (let [split-samples (vec(map #(inject (:Sensor %) (:Device %)) samples))
+                first-sample (first split-samples)
+                sensor-names (keys first-sample)
+                writers (init-writers sensor-names)
+                sensors-columns (map #(assoc {} % (keys (sort (% first-sample)))) sensor-names)]
+            (println {:sensors-columns sensors-columns})
+
+            ;; Write the headers for all files
+            (doseq [sensor-name sensor-names]
+              (let [headers (map name (sensor-name sensors-columns))]
+                (csv/write-csv (sensor-name @writers) headers)))
+
+            ;; Write the data
+            (doseq [sensors-sample split-samples]
+              (doseq [sensor-name sensor-names]
+;;                (println "++++++")
+;;                (pp/pprint {:sensor-name sensor-name :sensor-name-writers (sensor-name @writers) :sensor-name-sensors-sample (sensor-name sensors-sample)})))))
+                (csv/write-csv (sensor-name @writers) (sensor-name sensors-sample))))
+            (doseq [sensor-name sensor-names]
+              (.close (sensor-name @writers)))))
+                    
+;;                    (pp/pprint {:sensor-name sensor-name :sensor-names sensor-names :sensor-name-sensors-sample (sensor-name sensors-sample)})))))))
+;;                    (output-csv path (str data-name "_" sensor-name) (sensor-name sensors-sample))))))))
 
         (do
           (output-csv path data-name samples)))))))
