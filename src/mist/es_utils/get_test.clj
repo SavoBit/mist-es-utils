@@ -48,9 +48,8 @@
     ;; (with-open [writer (io/writer filename)]
     ;;   (json/write data writer))))
 
-(defn inject [new-k new-v m] 
-  (println {:new-k new-k :new-v new-v :m m})
-  (reduce-kv #(assoc %1 %2 (assoc %3 new-k new-v)) {} m))
+(defn inject [samples device] 
+  (reduce-kv #(assoc %1 %2 (assoc %3 :Device device)) {} samples))
 
 (defn split-sample [sample]
   (let [device (:Device sample)
@@ -64,14 +63,24 @@
     (let [data-name (str env "_" test-name "_" platform "-" metric-type)]
     (let [hits (hits :platform platform :metric-type metric-type :env env :test-name test-name :response-size 2)
           samples (mapv #(% :_source) hits)]
-      (pp/pprint (mapv #(% :_source) hits))
+      ;;(pp/pprint (mapv #(% :_source) hits))
       ;; (output-json path data-name samples)
       (if (= metric-type "sensor")
         (do
-          (let [split-samples (map #(split-sample %) samples)]
-            (pp/pprint (str "++++ split-samples: " split-samples))
-            (doseq [[sensor-name sensor-samples] split-samples]
-              (output-csv path (str data-name "_" sensor-name) sensor-samples))))
+          (let [split-samples (vec(map #(inject (:Sensor %) (:Device %)) samples))]
+;;            (println "split-samples:")
+;;            (pp/pprint split-samples)
+            (doseq [sensor-samples split-samples]
+              (println "sensor-samples:")
+              (pp/pprint sensor-samples)
+              (let [sensor-names (keys sensor-samples)]
+                (println "sensor-names:")
+                (pp/pprint sensor-names)
+                (doseq [sample sensor-samples]
+                  (println "sample: " sample)
+                  (doseq [sensor-name sensor-names]
+;;                    (pp/pprint {:sensor-name sensor-name :sensor-names sensor-names :sensor-name-sensor-samples (sensor-name sensor-samples)})))))))
+                    (output-csv path (str data-name "_" sensor-name) (sensor-name sensor-samples))))))))
 
         (do
           (output-csv path data-name samples)))))))
