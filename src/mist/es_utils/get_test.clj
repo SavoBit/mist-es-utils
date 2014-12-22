@@ -20,7 +20,7 @@
           res  (esd/search conn index "mist-sdk" :query { :match { :TestID test-name }} :size response-size)
           n    (esrsp/total-hits res)
           hits (esrsp/hits-from res)]
-      (println (format "Total " index " hits: %d" n))
+      (println (str "Total " index " hits: " n))
       hits)))
 
 (defn output-json [path data-name data]
@@ -35,6 +35,7 @@
         headers (map name columns)
         rows (mapv #(mapv % columns) data)]
     (println (str "Writing csv to: " filename))
+    (io/make-parents filename)
     (with-open [file (io/writer filename)]
       (csv/write-csv file (cons headers rows)))))
 
@@ -44,7 +45,9 @@
 (defn init-writers [filename-prefix attrs]
   (let [writers (atom {})]
     (doseq [i attrs]
-      (swap! writers assoc i (clojure.java.io/writer (str filename-prefix "_" (name i) ".csv"))))
+      (let [filename (str filename-prefix "_" (name i) ".csv")]
+        (io/make-parents filename)
+        (swap! writers assoc i (clojure.java.io/writer filename))))
     writers))
 
 (defn run [env test-name platform path]
@@ -65,6 +68,7 @@
               ;; Write the headers for all files
               (doseq [sensor-name sensor-names]
                 (let [headers (vector (map name (sensor-name sensors-columns)))]
+                  (println (str "Writing csv to: " filename-prefix "_" (name sensor-name) ".csv"))
                   (csv/write-csv (sensor-name @writers) headers)))
 
               ;; Write the data
