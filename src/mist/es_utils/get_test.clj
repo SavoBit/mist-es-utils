@@ -9,6 +9,14 @@
             [mist.es-utils.config :as config]
             [clojure.pprint :as pp]))
 
+(defmacro dlet [bindings & body]
+  `(let [~@(mapcat (fn [[n v]]
+                       (if (or (vector? n) (map? n))
+                           [n v]
+                         [n v '_ `(println (name '~n) ":" ~v)]))
+                   (partition 2 bindings))]
+     ~@body))
+
 (defn hits [& {:keys [platform metric-type env test-name response-size] :or {response-size 10000}}]
   (let [es-host (config/lookup :es :host)
         es-port (config/lookup :es :port)
@@ -42,19 +50,22 @@
 
 (defn split-sample [sample]
   (let [device (:Device sample)
-        sensors (group-by keys (:Sensor sample))]
+        sensors (into (sorted-map) (:Sensor sample))]
+    (println (str "sensors: " sensors))
     (map #(assoc % :Device device) sensors)))
 
 (defn run [env test-name platform path]
-  (doseq [metric-type ["location" "wifi" "sensor" "beacon"]]
+;;  (doseq [metric-type ["location" "wifi" "sensor" "beacon"]]
+  (doseq [metric-type ["sensor"]]
     (let [data-name (str env "_" test-name "_" platform "-" metric-type)]
-    (let [hits (hits :platform platform :metric-type metric-type :env env :test-name test-name)
+    (let [hits (hits :platform platform :metric-type metric-type :env env :test-name test-name :response-size 2)
           samples (mapv #(% :_source) hits)]
       ;; (pp/pprint (mapv #(% :_source) hits)))))
       ;; (output-json path data-name samples)
       (if (= metric-type "sensor")
         (do
-          (let [split-samples (group-by split-sample samples)]
+          (let [split-samples (map #(split-sample %) samples)]
+            (println (str "++++ split-samples: " split-samples))
             (doseq [[sensor-name sensor-samples] split-samples]
               (output-csv path (str data-name "_" sensor-name) sensor-samples))))
 
