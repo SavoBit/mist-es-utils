@@ -41,64 +41,42 @@
 (defn inject [samples device] 
   (reduce-kv #(assoc %1 %2 (assoc %3 :Device device)) {} samples))
 
-(defn split-sample [sample]
-  (let [device (:Device sample)
-        sensors (into (sorted-map) (:Sensor sample))]
-    (println (str "Inside split-sample device: " device " sensors: " sensors))
-    (inject :Device device sensors)))
-
-(defn init-writers [attrs]
-  (let [a (atom {})]
+(defn init-writers [filename-prefix attrs]
+  (let [writers (atom {})]
     (doseq [i attrs]
-      (swap! a assoc i (clojure.java.io/writer (str (name i) ".csv"))))
-    a))
-
-(defn map-kv [m f]
-(reduce-kv (fn [agg k v] (conj agg (f k v))) {} m))
-
-(defn map-vals
-"Given a map and a function, returns the map resulting from applying the function to each value."
-[m f]
-(zipmap (keys m) (map f (vals m))))
+      (swap! writers assoc i (clojure.java.io/writer (str filename-prefix "_" (name i) ".csv"))))
+    writers))
 
 (defn run [env test-name platform path]
-;;  (doseq [metric-type ["location" "wifi" "sensor" "beacon"]]
-  (doseq [metric-type ["sensor"]]
+  (doseq [metric-type ["location" "wifi" "sensor" "beacon"]]
     (let [data-name (str env "_" test-name "_" platform "-" metric-type)]
-    (let [hits (hits :platform platform :metric-type metric-type :env env :test-name test-name)
-          samples (mapv #(% :_source) hits)]
-      ;;(pp/pprint (mapv #(% :_source) hits))
-      ;; (output-json path data-name samples)
-      (if (= metric-type "sensor")
-        (do
-          (let [split-samples (vec(map #(inject (:Sensor %) (:Device %)) samples))
-                first-sample (first split-samples)
-                sensor-names (keys first-sample)
-                writers (init-writers sensor-names)
-;;                sensors-columns (map #(assoc {} % (keys (sort (% first-sample))))  sensor-names)]
-                sensors-columns (reduce-kv #(assoc %1 %2 (keys %3)) {} first-sample)]
-            (println "sensors-columns:")
-            (pp/pprint sensors-columns)
+      (let [hits (hits :platform platform :metric-type metric-type :env env :test-name test-name)
+            samples (mapv #(% :_source) hits)]
 
-            ;; Write the headers for all files
-            (doseq [sensor-name sensor-names]
-              (let [headers (vector (map name (sensor-name sensors-columns)))]
-                (println "sensor-name: " sensor-name "headers: " headers)
-                (csv/write-csv (sensor-name @writers) headers)))
+        (if (= metric-type "sensor")
+          (do
+            (let [split-samples (vec(map #(inject (:Sensor %) (:Device %)) samples))
+                  first-sample (first split-samples)
+                  sensor-names (keys first-sample)
+                  filename-prefix (str path "/" data-name)
+                  writers (init-writers filename-prefix sensor-names)
+                  sensors-columns (reduce-kv #(assoc %1 %2 (keys %3)) {} first-sample)]
 
-            ;; Write the data
-            (doseq [sensors-sample split-samples]
+              ;; Write the headers for all files
               (doseq [sensor-name sensor-names]
-;;                (println "++++++")
-;;                (pp/pprint {:sensor-name sensor-name :sensor-name-writers (sensor-name @writers) :sensor-name-sensors-sample (sensor-name sensors-sample)})))))
-                (csv/write-csv (sensor-name @writers) (vector (vals (sensor-name sensors-sample))))))
+                (let [headers (vector (map name (sensor-name sensors-columns)))]
+                  (csv/write-csv (sensor-name @writers) headers)))
 
-            ;; Close the writers
-            (doseq [sensor-name sensor-names]
-              (.close (sensor-name @writers)))))
-                    
-;;                    (pp/pprint {:sensor-name sensor-name :sensor-names sensor-names :sensor-name-sensors-sample (sensor-name sensors-sample)})))))))
-;;                    (output-csv path (str data-name "_" sensor-name) (sensor-name sensors-sample))))))))
+              ;; Write the data
+              (doseq [sensors-sample split-samples]
+                (doseq [sensor-name sensor-names]
+                  (csv/write-csv (sensor-name @writers) (vector (vals (sensor-name sensors-sample))))))
 
-        (do
-          (output-csv path data-name samples)))))))
+              ;; Close the writers
+              (doseq [sensor-name sensor-names]
+                (.close (sensor-name @writers)))))
+          
+
+          ;; All other metric types other than "sensor"
+          (do
+            (output-csv path data-name samples)))))))
