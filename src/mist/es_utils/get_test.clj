@@ -48,11 +48,15 @@
     ;; (with-open [writer (io/writer filename)]
     ;;   (json/write data writer))))
 
+(defn inject [new-k new-v m] 
+  (println {:new-k new-k :new-v new-v :m m})
+  (reduce-kv #(assoc %1 %2 (assoc %3 new-k new-v)) {} m))
+
 (defn split-sample [sample]
   (let [device (:Device sample)
         sensors (into (sorted-map) (:Sensor sample))]
-    (println (str "sensors: " sensors))
-    (map #(assoc % :Device device) sensors)))
+    (println (str "Inside split-sample device: " device " sensors: " sensors))
+    (inject :Device device sensors)))
 
 (defn run [env test-name platform path]
 ;;  (doseq [metric-type ["location" "wifi" "sensor" "beacon"]]
@@ -60,12 +64,12 @@
     (let [data-name (str env "_" test-name "_" platform "-" metric-type)]
     (let [hits (hits :platform platform :metric-type metric-type :env env :test-name test-name :response-size 2)
           samples (mapv #(% :_source) hits)]
-      ;; (pp/pprint (mapv #(% :_source) hits)))))
+      (pp/pprint (mapv #(% :_source) hits))
       ;; (output-json path data-name samples)
       (if (= metric-type "sensor")
         (do
           (let [split-samples (map #(split-sample %) samples)]
-            (println (str "++++ split-samples: " split-samples))
+            (pp/pprint (str "++++ split-samples: " split-samples))
             (doseq [[sensor-name sensor-samples] split-samples]
               (output-csv path (str data-name "_" sensor-name) sensor-samples))))
 
