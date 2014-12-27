@@ -50,37 +50,50 @@
         (swap! writers assoc i (clojure.java.io/writer filename))))
     writers))
 
-(defn run [env test-name platform path]
+(defn get-samples 
+  "Fetch the data from ES and return just the key/values in the _source portion of the returned JSON"
+  [platform metric-type env test-name]
+  (let [hits (hits :platform platform :metric-type metric-type :env env :test-name test-name)
+        samples (mapv #(% :_source) hits)]))
+
+(defn gen-csv-files [path data-name metric-type samples]
+  (if (= metric-type "sensor")
+    (do
+      (let [split-samples (vec(map #(inject (:Sensor %) (:Device %)) samples))
+            first-sample (first split-samples)
+            sensor-names (keys first-sample)
+            filename-prefix (str path "/" data-name)
+            writers (init-writers filename-prefix sensor-names)
+            sensors-columns (reduce-kv #(assoc %1 %2 (keys %3)) {} first-sample)]
+
+        ;; Write the headers for all files
+        (doseq [sensor-name sensor-names]
+          (let [headers (vector (map name (sensor-name sensors-columns)))]
+            (println (str "Writing csv to: " filename-prefix "_" (name sensor-name) ".csv"))
+            (csv/write-csv (sensor-name @writers) headers)))
+
+        ;; Write the data
+        (doseq [sensors-sample split-samples]
+          (doseq [sensor-name sensor-names]
+            (csv/write-csv (sensor-name @writers) (vector (vals (sensor-name sensors-sample))))))
+
+        ;; Close the writers
+        (doseq [sensor-name sensor-names]
+          (.close (sensor-name @writers)))))
+    
+
+    ;; All other metric types other than "sensor"
+    (output-csv path data-name samples)))
+
+(defn run 
+  "Do the actual work of fetching from ES and writing out csv or json files based on format param
+  Default is csv"
+  ([env test-name platform path] (run test-name platform path 'csv'))
+  ([env test-name platform path format])
+
   (doseq [metric-type ["location" "wifi" "sensor" "beacon"]]
     (let [data-name (str env "_" test-name "_" platform "-" metric-type)]
-      (let [hits (hits :platform platform :metric-type metric-type :env env :test-name test-name)
-            samples (mapv #(% :_source) hits)]
-
-        (if (= metric-type "sensor")
-          (do
-            (let [split-samples (vec(map #(inject (:Sensor %) (:Device %)) samples))
-                  first-sample (first split-samples)
-                  sensor-names (keys first-sample)
-                  filename-prefix (str path "/" data-name)
-                  writers (init-writers filename-prefix sensor-names)
-                  sensors-columns (reduce-kv #(assoc %1 %2 (keys %3)) {} first-sample)]
-
-              ;; Write the headers for all files
-              (doseq [sensor-name sensor-names]
-                (let [headers (vector (map name (sensor-name sensors-columns)))]
-                  (println (str "Writing csv to: " filename-prefix "_" (name sensor-name) ".csv"))
-                  (csv/write-csv (sensor-name @writers) headers)))
-
-              ;; Write the data
-              (doseq [sensors-sample split-samples]
-                (doseq [sensor-name sensor-names]
-                  (csv/write-csv (sensor-name @writers) (vector (vals (sensor-name sensors-sample))))))
-
-              ;; Close the writers
-              (doseq [sensor-name sensor-names]
-                (.close (sensor-name @writers)))))
-          
-
-          ;; All other metric types other than "sensor"
-          (do
-            (output-csv path data-name samples)))))))
+      (let [samples (get-samples platform metric-type env test-name)]
+        (if (= format "csv")
+          (gen-csv-files path data-name metric-type samples)
+          (output-json path data-name samples))))))
