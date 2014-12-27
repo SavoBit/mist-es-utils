@@ -7,6 +7,7 @@
             [clojure.data.csv :as csv]
             [clojure.java.io :as io]
             [mist.es-utils.config :as config]
+            [clojure.java.shell :as shell]
             [clojure.pprint :as pp]))
 
 (defn hits [& {:keys [platform metric-type env test-name response-size] :or {response-size 10000}}]
@@ -54,6 +55,10 @@
   (let [hits (hits :platform platform :metric-type metric-type :env env :test-name test-name)]
       (mapv #(% :_source) hits)))
 
+(defn zip-csvs [path]
+  (println (str "Zipping: " path))
+  (shell/sh "zip" "-r" path path))
+
 (defn gen-csv-files [path data-name metric-type samples]
   (if (= metric-type "sensor")
     (do
@@ -89,4 +94,5 @@
       (let [samples (get-samples platform metric-type env test-name)]
         (if (= format "csv")
           (gen-csv-files path data-name metric-type samples)
-          (output-json path data-name samples))))))
+          (output-json path data-name samples)))))
+  (zip-csvs path))
