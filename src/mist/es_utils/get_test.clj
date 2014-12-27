@@ -50,11 +50,9 @@
         (swap! writers assoc i (clojure.java.io/writer filename))))
     writers))
 
-(defn get-samples 
-  "Fetch the data from ES and return just the key/values in the _source portion of the returned JSON"
-  [platform metric-type env test-name]
-  (let [hits (hits :platform platform :metric-type metric-type :env env :test-name test-name)
-        samples (mapv #(% :_source) hits)]))
+(defn get-samples   [platform metric-type env test-name]
+  (let [hits (hits :platform platform :metric-type metric-type :env env :test-name test-name)]
+      (mapv #(% :_source) hits)))
 
 (defn gen-csv-files [path data-name metric-type samples]
   (if (= metric-type "sensor")
@@ -80,17 +78,12 @@
         ;; Close the writers
         (doseq [sensor-name sensor-names]
           (.close (sensor-name @writers)))))
-    
+
 
     ;; All other metric types other than "sensor"
     (output-csv path data-name samples)))
 
-(defn run 
-  "Do the actual work of fetching from ES and writing out csv or json files based on format param
-  Default is csv"
-  ([env test-name platform path] (run test-name platform path 'csv'))
-  ([env test-name platform path format])
-
+(defn run [env test-name platform path format]
   (doseq [metric-type ["location" "wifi" "sensor" "beacon"]]
     (let [data-name (str env "_" test-name "_" platform "-" metric-type)]
       (let [samples (get-samples platform metric-type env test-name)]

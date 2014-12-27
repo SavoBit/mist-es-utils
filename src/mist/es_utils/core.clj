@@ -19,6 +19,8 @@
     :default "android"]
    ["-P" "--path PATH" "Path to Directory to put results"
     :default "data"]
+   ["-f" "--format FORMAT" "Should be csv or json. csv is default"
+    :default "csv"]
    ["-h" "--help"]])
 
 (defn -main [& args]
@@ -31,5 +33,5 @@
                             :handler cider-nrepl-handler))
       (do
         (println "Running workflow")
-        (get-test/run (:env options) (:test-name options) (:platform options) (:path options))
+        (get-test/run (:env options) (:test-name options) (:platform options) (:path options) (:format options))
         (System/exit 0)))))
