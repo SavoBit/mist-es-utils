@@ -57,7 +57,7 @@
 
 (defn zip-csvs [path]
   (println (str "Zipping: " path))
-  (shell/sh "zip" "-r" path path))
+  (shell/sh "zip" "-rj" path path))
 
 (defn gen-csv-files [path data-name metric-type samples]
   (if (= metric-type "sensor")
